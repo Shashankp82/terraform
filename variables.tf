@@ -42,7 +42,7 @@ variable "az1" {
 variable "az2" {
   description = "value for az2"
   type        = string
-  default     = "ap.south-1b"
+  default     = "ap-south-1b"
 
 }
 
