@@ -94,3 +94,101 @@ resource "aws_route_table_association" "private_rt2" {
   route_table_id = aws_subnet.private_subnet_2.id
   
 }
+
+#Security group for web,db
+resource "aws_security_group" "web_sg" {
+  name = "web_sg"
+  description = "allow inbound HTTP traffic"
+  vpc_id = aws_vpc.custom_vpc.id
+
+  #inbound rule
+  ingress = {
+    from_port = 80
+    to_port = 80
+    protocol = tcp
+    cidr_block = ["0.0.0.0/0"]
+  }
+
+#outbound rule
+egress = {
+  from_port = 0
+  to_port = 0
+  protocol = -1
+  cidr_block = ["0.0.0.0/0"]
+}
+  tags = {
+    name = "web_sg"
+  }
+}
+
+# web tier security group
+resource "aws_security_group" "webserver_sg" {
+  name        = "webserver_sg"
+  description = "allow inbound traffic from ALB"
+  vpc_id      = aws_vpc.custom_vpc.id
+  
+  # allow inbound traffic from web
+  ingress {
+     from_port       = 80
+     to_port         = 80
+     protocol        = "tcp"
+     security_groups = [aws_security_group.web_sg.id]
+  }
+
+  egress {
+     from_port = "0"
+     to_port   = "0"
+     protocol  = "-1"
+     cidr_blocks = ["0.0.0.0/0"]
+  }
+
+  tags = {
+     name = "webserver_sg"
+  }
+}
+
+#INSTANCES BLOCK - EC2
+#1st ec2 instance on public subnet 1
+resource "aws_instance" "ec2_1" {
+  ami = var.ec2_instance_ami
+  instance_type = var.ec2_instance_type
+  availability_zone = var.az1
+  subnet_id = aws_subnet.public_subnet_1.id
+  vpc_security_group_ids = [aws_security_group.webserver_sg.id]
+  user_data = <<EOF
+  #!/bin/bash
+       yum update -y
+       yum install -y httpd
+       systemctl start httpd
+       systemctl enable httpd
+       EC2AZ=$(curl -s http://169.254.169.254/latest/meta-data/placement/availability-zone)
+       echo '<center><h1>This Amazon EC2 instance is located in Availability Zone:AZID </h1></center>' > /var/www/html/index.txt
+       sed"s/AZID/$EC2AZ/" /var/www/html/index.txt > /var/www/html/index.html
+       EOF
+  tags {
+    name = "ec2_1"
+  }    
+}
+
+# 2nd ec2 instance on public subnet 2
+resource "aws_instance" "ec2_2" {
+  ami                     = var.ec2_instance_ami
+  instance_type           = var.ec2_instance_type
+  availability_zone       = var.az2
+  subnet_id               = aws_subnet.public_subnet2.id
+  vpc_security_group_ids  = [aws_security_group.webserver_sg.id] 
+  user_data               = <<EOF
+       #!/bin/bash
+       yum update -y
+       yum install -y httpd
+       systemctl start httpd
+       systemctl enable httpd
+       EC2AZ=$(curl -s http://169.254.169.254/latest/meta-data/placement/availability-zone)
+       echo '<center><h1>This Amazon EC2 instance is located in Availability Zone:AZID </h1></center>' > /var/www/html/index.txt
+       sed"s/AZID/$EC2AZ/" /var/www/html/index.txt > /var/www/html/index.html
+       EOF 
+  
+  tags = {
+     name = "ec2_2"
+  }
+}
