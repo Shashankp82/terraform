@@ -1,5 +1,5 @@
 provider "aws" {
-  region = ap-south-1
+  region = "ap-south-1"
 }
 
 #VPC Block
@@ -12,42 +12,42 @@ resource "aws_vpc" "custom_vpc" {
 
 #public subnet
 resource "aws_subnet" "public_subnet_1" {
-  vpc_id = aws_vpc.custom_vpc.id
-  cidr_block = var.public_subnet_1
+  vpc_id            = aws_vpc.custom_vpc.id
+  cidr_block        = var.public_subnet_1
   availability_zone = var.az1
   tags = {
     name = "public_subnet_1"
-    }
+  }
 }
 
 resource "aws_subnet" "public_subnet_2" {
-  vpc_id = aws_vpc.custom_vpc.id
-  cidr_block = var.public_subnet_2
+  vpc_id            = aws_vpc.custom_vpc.id
+  cidr_block        = var.public_subnet_2
   availability_zone = var.az2
   tags = {
     name = "public_subnet_2"
   }
-  
+
 }
 
 resource "aws_subnet" "private_subnet_1" {
-  vpc_id = aws_vpc.custom_vpc.id
-  cidr_block = var.private_subnet_1
+  vpc_id            = aws_vpc.custom_vpc.id
+  cidr_block        = var.private_subnet_1
   availability_zone = var.az1
   tags = {
     name = "private_subnet_1"
   }
-  
+
 }
 
 resource "aws_subnet" "private_subnet_2" {
-  vpc_id = aws_vpc.custom_vpc.id
-  cidr_block = var.private_subnet_2
+  vpc_id            = aws_vpc.custom_vpc.id
+  cidr_block        = var.private_subnet_2
   availability_zone = var.az2
   tags = {
     name = "private_subnet_2"
   }
-  
+
 }
 
 #creating IGW
@@ -56,70 +56,77 @@ resource "aws_internet_gateway" "igw" {
   tags = {
     name = "igw"
   }
-  
+
 }
 
 #routing table
 resource "aws_route_table" "rt" {
-  vpc_id = aws_vpc.custom_vpc.id
-  route = {
-    cidr_block = "0.0.0.0/0"
-    gateway_id  = aws_internet_gateway.igw.id
-  } 
-    tags = {
+   vpc_id = aws_vpc.custom_vpc.id
+   route {
+      cidr_block = "0.0.0.0/0"
+      gateway_id = aws_internet_gateway.igw.id
+  }
+
+  tags = {
       name = "rt"
-    }
-  
+  }
 }
+
+
 #associate route table to the public subnet 1
 resource "aws_route_table_association" "public_rt1" {
-  subnet_id = aws_subnet.public_subnet_1.id
+  subnet_id      = aws_subnet.public_subnet_1.id
   route_table_id = aws_subnet.public_subnet_1.id
-  
+
 }
 
 resource "aws_route_table_association" "public_rt2" {
-  subnet_id = aws_subnet.public_subnet_2.id
+  subnet_id      = aws_subnet.public_subnet_2.id
   route_table_id = aws_subnet.public_subnet_2.id
 
 }
 resource "aws_route_table_association" "private_rt1" {
-  subnet_id = aws_subnet.private_subnet_1.id
+  subnet_id      = aws_subnet.private_subnet_1.id
   route_table_id = aws_subnet.private_subnet_1.id
-  
+
 }
 
 resource "aws_route_table_association" "private_rt2" {
-  subnet_id = aws_subnet.private_subnet_2.id
+  subnet_id      = aws_subnet.private_subnet_2.id
   route_table_id = aws_subnet.private_subnet_2.id
-  
+
 }
 
 #Security group for web,db
+# custom vpc security group 
 resource "aws_security_group" "web_sg" {
-  name = "web_sg"
-  description = "allow inbound HTTP traffic"
-  vpc_id = aws_vpc.custom_vpc.id
+   name        = "web_sg"
+   description = "allow inbound HTTP traffic"
+   vpc_id      = aws_vpc.custom_vpc.id
 
-  #inbound rule
-  ingress = {
-    from_port = 80
-    to_port = 80
-    protocol = tcp
-    cidr_block = ["0.0.0.0/0"]
+   # HTTP from vpc
+   ingress {
+      from_port   = 80
+      to_port     = 80
+      protocol    = "tcp"
+      cidr_blocks = ["0.0.0.0/0"]     
+   }
+
+
+  # outbound rules
+  # internet access to anywhere
+  egress {
+     from_port   = 0
+     to_port     = 0
+     protocol    = "-1"
+     cidr_blocks = ["0.0.0.0/0"]
   }
 
-#outbound rule
-egress = {
-  from_port = 0
-  to_port = 0
-  protocol = -1
-  cidr_block = ["0.0.0.0/0"]
-}
   tags = {
-    name = "web_sg"
+     name = "web_sg"
   }
 }
+
 
 # web tier security group
 resource "aws_security_group" "webserver_sg" {
@@ -147,15 +154,16 @@ resource "aws_security_group" "webserver_sg" {
   }
 }
 
+
 #INSTANCES BLOCK - EC2
 #1st ec2 instance on public subnet 1
 resource "aws_instance" "ec2_1" {
-  ami = var.ec2_instance_ami
-  instance_type = var.ec2_instance_type
-  availability_zone = var.az1
-  subnet_id = aws_subnet.public_subnet_1.id
+  ami                    = var.ec2_instance_ami
+  instance_type          = var.ec2_instance_type
+  availability_zone      = var.az1
+  subnet_id              = aws_subnet.public_subnet_1.id
   vpc_security_group_ids = [aws_security_group.webserver_sg.id]
-  user_data = <<EOF
+  user_data              = <<EOF
   #!/bin/bash
        yum update -y
        yum install -y httpd
@@ -165,19 +173,19 @@ resource "aws_instance" "ec2_1" {
        echo '<center><h1>This Amazon EC2 instance is located in Availability Zone:AZID </h1></center>' > /var/www/html/index.txt
        sed"s/AZID/$EC2AZ/" /var/www/html/index.txt > /var/www/html/index.html
        EOF
-  tags {
+  tags = {
     name = "ec2_1"
-  }    
+  }
 }
 
 # 2nd ec2 instance on public subnet 2
 resource "aws_instance" "ec2_2" {
-  ami                     = var.ec2_instance_ami
-  instance_type           = var.ec2_instance_type
-  availability_zone       = var.az2
-  subnet_id               = aws_subnet.public_subnet2.id
-  vpc_security_group_ids  = [aws_security_group.webserver_sg.id] 
-  user_data               = <<EOF
+  ami                    = var.ec2_instance_ami
+  instance_type          = var.ec2_instance_type
+  availability_zone      = var.az2
+  subnet_id              = aws_subnet.public_subnet_2.id
+  vpc_security_group_ids = [aws_security_group.webserver_sg.id]
+  user_data              = <<EOF
        #!/bin/bash
        yum update -y
        yum install -y httpd
@@ -187,8 +195,8 @@ resource "aws_instance" "ec2_2" {
        echo '<center><h1>This Amazon EC2 instance is located in Availability Zone:AZID </h1></center>' > /var/www/html/index.txt
        sed"s/AZID/$EC2AZ/" /var/www/html/index.txt > /var/www/html/index.html
        EOF 
-  
+
   tags = {
-     name = "ec2_2"
+    name = "ec2_2"
   }
 }
