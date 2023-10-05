@@ -163,6 +163,7 @@ resource "aws_instance" "ec2_1" {
   availability_zone      = var.az1
   subnet_id              = aws_subnet.public_subnet_1.id
   vpc_security_group_ids = [aws_security_group.webserver_sg.id]
+  associate_public_ip_address = "true"
   user_data              = <<EOF
   #!/bin/bash
        yum update -y
@@ -185,6 +186,7 @@ resource "aws_instance" "ec2_2" {
   availability_zone      = var.az2
   subnet_id              = aws_subnet.public_subnet_2.id
   vpc_security_group_ids = [aws_security_group.webserver_sg.id]
+  associate_public_ip_address = "true"
   user_data              = <<EOF
        #!/bin/bash
        yum update -y
